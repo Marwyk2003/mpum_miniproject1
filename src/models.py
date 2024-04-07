@@ -12,7 +12,7 @@ class BaseModel:
     def pred(self, X, theta):
         return np.dot(X, theta)
 
-    def train(self, num_epochs, step_size=0.1):
+    def train(self, num_epochs, step_size=0.1, batch_size=100):
         N, D = self.X.shape
         theta = np.zeros([D, 1])
         loss = 0
@@ -33,7 +33,7 @@ class BaseModel:
         raise NotImplementedError
 
     def _step(self, theta, grad, step_size):
-        raise NotImplementedError
+        return theta - step_size * grad
 
     def analytical(self):
         raise NotImplementedError
@@ -41,13 +41,10 @@ class BaseModel:
 
 class LeastSquaresModel(BaseModel):
     def _mse(self, y, ypred, _theta=None):
-        return np.mean((y - ypred) ** 2)
+        return np.sum((y - ypred) ** 2) / y.shape[0]
 
     def _grad(self, X, y, theta):
         return np.dot(X.T, self.pred(X, theta) - y) / y.shape[0]
-
-    def _step(self, theta, grad, step_size):
-        return theta - step_size * grad
 
     def analytical(self):
         A = np.dot(self.X.T, self.X)
@@ -57,7 +54,7 @@ class LeastSquaresModel(BaseModel):
         A = A.reshape([A.shape[0], 1])
 
         ypred = self.pred(self.X, A)
-        loss = np.mean((self.y - ypred) ** 2)
+        loss = self._mse(self.y, ypred)
         return A, loss
 
 
@@ -72,10 +69,8 @@ class RidgeLSModel(BaseModel):
 
     def _grad(self, X, y, theta):
         reg_grad = self.l * 2 * theta
+        reg_grad[0] = 0
         return (np.dot(X.T, self.pred(X, theta) - y)) / y.shape[0] + reg_grad
-
-    def _step(self, theta, grad, step_size):
-        return theta - step_size * grad
 
     def analytical(self):
         A = np.dot(self.X.T, self.X)
@@ -86,7 +81,7 @@ class RidgeLSModel(BaseModel):
         A = A.reshape([A.shape[0], 1])
 
         ypred = self.pred(self.X, A)
-        loss = np.mean((self.y - ypred) ** 2)
+        loss = self._mse(self.y, ypred, A)
         return A, loss
 
 
@@ -97,36 +92,30 @@ class LassoLSModel(BaseModel):
         self.l = l
 
     def _mse(self, y, ypred, theta):
-        return (np.sum((y - ypred) ** 2) + self.l * np.sum(np.abs(theta[1:])))/y.shape[0]
+        return np.mean((y - ypred) ** 2) + self.l * np.sum(np.abs(theta[1:]))
 
     def _convert(self, ls_theta):
         return np.sign(ls_theta) * np.maximum(np.abs(ls_theta) - self.l / 2, 0)
 
     def _grad(self, X, y, theta):
-        reg_grad = np.sign(theta)
+        reg_grad = self.l * np.sign(theta)
         reg_grad[0] = 0
-        return (np.dot(X.T, self.pred(X, theta) - y) + reg_grad) / y.shape[0]
+        return np.dot(X.T, self.pred(X, theta) - y) / y.shape[0] + reg_grad
 
-    def _step(self, theta, grad, step_size):
-        return theta - step_size * grad
+class ElasticLSModel(BaseModel):
+    def __init__(self, X, y, l1, l2):
+        self.X = X
+        self.y = y
+        self.l1 = l1
+        self.l2 = l2
 
-    # def train(self, num_epochs, step_size=0.1):
-    #     ls_model = LeastSquaresModel(self.X, self.y)
-    #     ls_thetas, _ = ls_model.train(num_epochs, step_size)
-    #     thetas = [self._convert(ls_theta) for ls_theta in ls_thetas]
-    #
-    #     theta = thetas[-1]
-    #     y_pred = self.pred(self.X, theta)
-    #     loss = self._mse(self.y, y_pred, theta)
-    #     return thetas, loss
+    def _mse(self, y, ypred, theta):
+        return np.mean((y - ypred) ** 2) + self.l1 * np.sum(np.abs(theta[1:])) + self.l2 * np.sum(theta[1:] ** 2)
 
-    def analytical(self):
-        ls_model = LeastSquaresModel(self.X, self.y)
-        ls_theta, _ = ls_model.analytical()
+    def _convert(self, ls_theta):
+        return np.sign(ls_theta) * np.maximum(np.abs(ls_theta) - self.l1 / 2, 0)
 
-        theta = self._convert(ls_theta)
-        y_pred = self.pred(self.X, theta)
-        loss = self._mse(self.y, y_pred, theta)
-        return theta, loss
-
-# %%
+    def _grad(self, X, y, theta):
+        reg_grad = self.l1 * np.sign(theta) + self.l2 * 2 * theta
+        reg_grad[0] = 0
+        return np.dot(X.T, self.pred(X, theta) - y) / y.shape[0]
