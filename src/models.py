@@ -21,12 +21,12 @@ class BaseModel:
             gradient = self._grad(self.X, self.y, theta)
             theta = self._step(theta, gradient, step_size)
             ypred = self.pred(self.X, theta)
-            loss = self._mse(self.y, ypred, theta)
+            loss = self.mse(self.y, ypred, theta)
             thetas += [theta]
 
         return thetas, loss
 
-    def _mse(self, y, ypred, theta):
+    def mse(self, y, ypred, theta):
         raise NotImplementedError
 
     def _grad(self, X, y, theta):
@@ -40,7 +40,7 @@ class BaseModel:
 
 
 class LeastSquaresModel(BaseModel):
-    def _mse(self, y, ypred, _theta=None):
+    def mse(self, y, ypred, _theta=None):
         return np.sum((y - ypred) ** 2) / y.shape[0]
 
     def _grad(self, X, y, theta):
@@ -54,7 +54,7 @@ class LeastSquaresModel(BaseModel):
         A = A.reshape([A.shape[0], 1])
 
         ypred = self.pred(self.X, A)
-        loss = self._mse(self.y, ypred)
+        loss = self.mse(self.y, ypred)
         return A, loss
 
 
@@ -63,7 +63,7 @@ class RidgeLSModel(BaseModel):
         super().__init__(X, y)
         self.l = l
 
-    def _mse(self, y, ypred, theta):
+    def mse(self, y, ypred, theta):
         return np.sum((y - ypred) ** 2) / y.shape[0] + self.l * np.sum(theta[1:] ** 2)
 
     def _grad(self, X, y, theta):
@@ -80,7 +80,7 @@ class RidgeLSModel(BaseModel):
         A = A.reshape([A.shape[0], 1])
 
         ypred = self.pred(self.X, A)
-        loss = self._mse(self.y, ypred, A)
+        loss = self.mse(self.y, ypred, A)
         return A, loss
 
 
@@ -89,7 +89,7 @@ class LassoLSModel(BaseModel):
         super().__init__(X, y)
         self.l = l
 
-    def _mse(self, y, ypred, theta):
+    def mse(self, y, ypred, theta):
         return np.sum((y - ypred) ** 2) / y.shape[0] + self.l * np.sum(np.abs(theta[1:]))
 
     def _convert(self, ls_theta):
@@ -107,7 +107,7 @@ class ElasticLSModel(BaseModel):
         self.l1 = l1
         self.l2 = l2
 
-    def _mse(self, y, ypred, theta):
+    def mse(self, y, ypred, theta):
         return np.mean((y - ypred) ** 2) + self.l1 * np.sum(np.abs(theta[1:])) + self.l2 * np.sum(theta[1:] ** 2)
 
     def _convert(self, ls_theta):
