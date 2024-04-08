@@ -60,8 +60,7 @@ class LeastSquaresModel(BaseModel):
 
 class RidgeLSModel(BaseModel):
     def __init__(self, X, y, l):
-        self.X = X
-        self.y = y
+        super().__init__(X, y)
         self.l = l
 
     def _mse(self, y, ypred, theta):
@@ -87,12 +86,11 @@ class RidgeLSModel(BaseModel):
 
 class LassoLSModel(BaseModel):
     def __init__(self, X, y, l):
-        self.X = X
-        self.y = y
+        super().__init__(X, y)
         self.l = l
 
     def _mse(self, y, ypred, theta):
-        return np.mean((y - ypred) ** 2) + self.l * np.sum(np.abs(theta[1:]))
+        return np.sum((y - ypred) ** 2) / y.shape[0] + self.l * np.sum(np.abs(theta[1:]))
 
     def _convert(self, ls_theta):
         return np.sign(ls_theta) * np.maximum(np.abs(ls_theta) - self.l / 2, 0)
@@ -102,10 +100,10 @@ class LassoLSModel(BaseModel):
         reg_grad[0] = 0
         return np.dot(X.T, self.pred(X, theta) - y) / y.shape[0] + reg_grad
 
+
 class ElasticLSModel(BaseModel):
     def __init__(self, X, y, l1, l2):
-        self.X = X
-        self.y = y
+        super().__init__(X, y)
         self.l1 = l1
         self.l2 = l2
 
