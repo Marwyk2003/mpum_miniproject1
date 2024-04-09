@@ -18,11 +18,16 @@ class BaseModel:
         loss = 0
         thetas = []
         for epoch in range(num_epochs):
-            gradient = self._grad(self.X, self.y, theta)
-            theta = self._step(theta, gradient, step_size)
-            ypred = self.pred(self.X, theta)
-            loss = self.mse(self.y, ypred, theta)
-            thetas += [theta]
+            rand_idx = np.random.permutation(N)
+            rand_X, rand_y = self.X[rand_idx], self.y[rand_idx]
+            for batch in range(0, N, batch_size):
+                batch_X = rand_X[batch: batch + batch_size]
+                batch_y = rand_y[batch: batch + batch_size]
+                gradient = self._grad(batch_X, batch_y, theta)
+                theta = self._step(theta, gradient, step_size)
+                ypred = self.pred(batch_X, theta)
+                loss = self.mse(batch_y, ypred, theta)
+                thetas += [theta]
 
         return thetas, loss
 
@@ -48,7 +53,7 @@ class LeastSquaresModel(BaseModel):
 
     def analytical(self):
         A = np.dot(self.X.T, self.X)
-        A = np.linalg.inv(A)
+        A = np.linalg.pinv(A)
         A = np.dot(A, self.X.T)
         A = np.dot(A, self.y)
         A = A.reshape([A.shape[0], 1])
@@ -73,8 +78,10 @@ class RidgeLSModel(BaseModel):
 
     def analytical(self):
         A = np.dot(self.X.T, self.X)
-        A += np.identity(self.X.shape[1]) * self.l
-        A = np.linalg.inv(A)
+        I = np.identity(self.X.shape[1]) * self.l
+        I[0,0]=0
+        A += I
+        A = np.linalg.pinv(A)
         A = np.dot(A, self.X.T)
         A = np.dot(A, self.y)
         A = A.reshape([A.shape[0], 1])
